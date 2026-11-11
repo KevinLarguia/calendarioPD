@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { Globe, RefreshCw } from 'lucide-react'
 import type { Slot, SlotsRespuesta } from '@/lib/agendador/tipos'
 import { agruparPorDia, formatearDiaCorto, formatearFechaLarga, formatearHora } from '@/lib/agendador/zonas'
-import { SelectorZona } from '@/components/agendador/selector-zona'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -13,13 +12,12 @@ type Props = {
   cargando: boolean
   error: boolean
   zona: string
-  onZona: (z: string) => void
   aviso: string | null
   onElegir: (slot: Slot) => void
   onReintentar: () => void
 }
 
-export function SelectorHorarios({ data, cargando, error, zona, onZona, aviso, onElegir, onReintentar }: Props) {
+export function SelectorHorarios({ data, cargando, error, zona, aviso, onElegir, onReintentar }: Props) {
   const dias = useMemo(() => agruparPorDia(data?.slots ?? [], zona), [data, zona])
   const [diaActivo, setDiaActivo] = useState<string | null>(null)
 
@@ -41,13 +39,10 @@ export function SelectorHorarios({ data, cargando, error, zona, onZona, aviso, o
         </p>
       )}
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="zona" className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-          <Globe className="size-3.5" aria-hidden />
-          Zona horaria
-        </label>
-        <SelectorZona id="zona" valor={zona} onCambio={onZona} />
-      </div>
+      <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        <Globe className="size-3.5" aria-hidden />
+        Horarios en hora de Buenos Aires (Argentina)
+      </p>
 
       {cargando && !data && <EsqueletoHorarios />}
 
@@ -114,7 +109,7 @@ export function SelectorHorarios({ data, cargando, error, zona, onZona, aviso, o
                   </li>
                 ))}
               </ul>
-              <p className="text-xs text-muted-foreground">Duración: {data?.duracion_min ?? 60} minutos.</p>
+              <p className="text-xs text-muted-foreground">Duración: {data?.duracion_min ?? 30} minutos.</p>
             </div>
           )}
         </>

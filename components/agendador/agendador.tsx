@@ -1,11 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useSearchParams } from 'next/navigation'
 import useSWR from 'swr'
 import type { ResultadoReserva, Slot, SlotsRespuesta } from '@/lib/agendador/tipos'
-import { ZONA_DEFAULT, zonaDelNavegador, zonaValida } from '@/lib/agendador/zonas'
+import { ZONA_DEFAULT } from '@/lib/agendador/zonas'
 import { SelectorHorarios } from '@/components/agendador/selector-horarios'
 import { Confirmacion } from '@/components/agendador/confirmacion'
 import { Pasos } from '@/components/agendador/pasos'
@@ -21,15 +21,10 @@ type Paso = { n: 1 } | { n: 2; slot: Slot } | { n: 3; resultado: ResultadoReserv
 
 export function Agendador() {
   const params = useSearchParams()
-  // Arranca en la zona del negocio para que servidor y cliente rendericen igual; el efecto la ajusta al navegador.
-  const [zona, setZona] = useState(ZONA_DEFAULT)
+  // Los horarios se muestran siempre en la zona del negocio (Buenos Aires); el lead no la puede cambiar.
+  const zona = ZONA_DEFAULT
   const [paso, setPaso] = useState<Paso>({ n: 1 })
   const [aviso, setAviso] = useState<string | null>(null)
-
-  useEffect(() => {
-    const z = params.get('tz')
-    setZona(z && zonaValida(z) ? z : zonaDelNavegador())
-  }, [params])
 
   const { data, error, isLoading, mutate } = useSWR('/api/slots', fetcher, {
     refreshInterval: paso.n === 1 ? 30_000 : 0,
@@ -70,7 +65,6 @@ export function Agendador() {
           cargando={isLoading}
           error={Boolean(error)}
           zona={zona}
-          onZona={setZona}
           aviso={aviso}
           onElegir={(slot) => {
             setAviso(null)
