@@ -1,15 +1,15 @@
+import Image from 'next/image'
+
+// El PNG trae isotipo dorado + nombre en blanco (3491×730), pensado para fondo oscuro.
 export function Marca() {
   return (
-    <div className="flex items-center gap-2.5">
-      <span
-        aria-hidden
-        className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-gold-light to-gold-dark text-sm font-bold text-ink"
-      >
-        PD
-      </span>
-      <span className="text-sm font-semibold tracking-tight">
-        ProductosDigitales<span className="text-gold-light">.io</span>
-      </span>
-    </div>
+    <Image
+      src="/logo-productosdigitales.png"
+      alt="ProductosDigitales.io"
+      width={172}
+      height={36}
+      priority
+      className="h-9 w-auto self-start"
+    />
   )
 }
