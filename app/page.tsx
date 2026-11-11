@@ -13,7 +13,7 @@ export default function Pagina() {
             Elegí el día y la hora de tu llamada
           </h1>
           <p className="text-sm leading-relaxed text-pretty text-muted-foreground">
-            Dura 60 minutos y es por videollamada. Te vamos a confirmar por WhatsApp.
+            Dura 30 minutos y es por videollamada. Te vamos a confirmar por WhatsApp.
           </p>
         </div>
       </header>
