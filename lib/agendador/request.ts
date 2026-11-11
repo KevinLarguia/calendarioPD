@@ -1,4 +1,5 @@
 import 'server-only'
+import { env } from '@/lib/env'
 
 /** Host público del deploy (para armar invitee_uri). Prioriza x-forwarded-host (Vercel). */
 export function hostDe(req: Request): string {
@@ -7,6 +8,9 @@ export function hostDe(req: Request): string {
 }
 
 export function ipDe(req: Request): string | null {
+  // Solo en modo test: k6 corre desde una IP y necesita simular leads distintos para no chocar con el rate limit.
+  const simulada = env.modo === 'test' ? req.headers.get('x-prueba-ip') : null
+  if (simulada) return simulada.slice(0, 64)
   const xff = req.headers.get('x-forwarded-for')
   if (xff) return xff.split(',')[0].trim().slice(0, 64)
   return req.headers.get('x-real-ip')?.slice(0, 64) ?? null
