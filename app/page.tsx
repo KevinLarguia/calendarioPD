@@ -10,10 +10,10 @@ export default function Pagina() {
         <div className="flex flex-col gap-2">
           <p className="text-xs font-medium tracking-[0.18em] text-gold-light uppercase">Llamada de Admisión</p>
           <h1 className="text-2xl leading-tight font-semibold text-balance sm:text-3xl">
-            Elegí el día y la hora de tu llamada
+            Agendá tu llamada
           </h1>
           <p className="text-sm leading-relaxed text-pretty text-muted-foreground">
-            Dura 30 minutos y es por videollamada. Te vamos a confirmar por WhatsApp.
+            Completá tus datos y después elegí el día y la hora. Dura 30 minutos y es por videollamada. Te vamos a confirmar por WhatsApp.
           </p>
         </div>
       </header>

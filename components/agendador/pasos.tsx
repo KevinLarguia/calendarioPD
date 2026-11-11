@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils'
 
-const PASOS = ['Horario', 'Tus datos', 'Confirmación']
+const PASOS = ['Tus datos', 'Horario', 'Confirmación']
 
 export function Pasos({ actual }: { actual: 1 | 2 | 3 }) {
   return (
