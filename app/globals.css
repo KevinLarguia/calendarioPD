@@ -1,0 +1,91 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-sans);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-gold-light: var(--gold-light);
+  --color-gold-dark: var(--gold-dark);
+  --color-green: var(--green);
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: 1.5rem;
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* Tema oscuro fijo: tokens de productosdigitales.io */
+:root {
+  --ink: #0d1015;
+  --paper: #f2f2f2;
+  --surface: #151a22;
+  --surface-raised: #1d222b;
+  --gold-light: #f0e281;
+  --gold-dark: #a37b3c;
+  --green: #3fb052;
+  --radius: 0.875rem;
+
+  --background: var(--ink);
+  --foreground: var(--paper);
+  --card: var(--surface);
+  --card-foreground: var(--paper);
+  --popover: var(--surface-raised);
+  --popover-foreground: var(--paper);
+  --primary: var(--gold-light);
+  --primary-foreground: var(--ink);
+  --secondary: var(--surface-raised);
+  --secondary-foreground: var(--paper);
+  --muted: var(--surface-raised);
+  --muted-foreground: #9aa3b2;
+  --accent: var(--surface-raised);
+  --accent-foreground: var(--paper);
+  --destructive: #e5484d;
+  --border: rgb(242 242 242 / 0.1);
+  --input: rgb(242 242 242 / 0.14);
+  --ring: var(--gold-dark);
+  color-scheme: dark;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply bg-background;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@utility texto-dorado {
+  background-image: linear-gradient(135deg, var(--gold-light), var(--gold-dark));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
