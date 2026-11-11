@@ -56,6 +56,17 @@ export function ConfigForm({ config }: { config: Config }) {
         <CampoNum id="limite_email_10min" etiqueta="Límite por email / 10 min" valor={config.limite_email_10min} />
       </div>
 
+      <fieldset className="flex flex-col gap-2 rounded-xl border border-dashed p-3">
+        <legend className="px-1 text-sm font-medium">Día de webinar</legend>
+        <p className="text-xs text-muted-foreground">
+          Los turnos de esa fecha se pueden agendar con menos anticipación (para reservar durante el vivo). Vacío = sin excepción.
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <CampoNum id="webinar_fecha" etiqueta="Fecha" tipo="date" valor={config.webinar_fecha ?? ''} />
+          <CampoNum id="webinar_aviso_min" etiqueta="Aviso ese día (min)" valor={config.webinar_aviso_min} />
+        </div>
+      </fieldset>
+
       <div className="grid gap-3 sm:grid-cols-2">
         <CampoNum id="zona" etiqueta="Zona (IANA)" tipo="text" valor={config.zona} />
         <CampoNum id="utm_source" etiqueta="utm_source" tipo="text" valor={config.utm_source} />

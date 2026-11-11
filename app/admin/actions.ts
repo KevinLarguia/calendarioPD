@@ -34,6 +34,12 @@ const configSchema = z.object({
   paso_min: numero(5, 240),
   duracion_min: numero(5, 240),
   aviso_min_minutos: numero(0, 10080),
+  webinar_fecha: z
+    .string()
+    .trim()
+    .transform((v) => (v === '' ? null : v))
+    .pipe(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida').nullable()),
+  webinar_aviso_min: numero(0, 1440),
   dias_adelante: numero(0, 60),
   zona: z.string().min(1).max(80),
   envios_por_minuto: numero(1, 120),
@@ -53,6 +59,8 @@ export async function guardarConfig(_prev: EstadoAccion, formData: FormData): Pr
     paso_min: formData.get('paso_min'),
     duracion_min: formData.get('duracion_min'),
     aviso_min_minutos: formData.get('aviso_min_minutos'),
+    webinar_fecha: formData.get('webinar_fecha') ?? '',
+    webinar_aviso_min: formData.get('webinar_aviso_min'),
     dias_adelante: formData.get('dias_adelante'),
     zona: formData.get('zona'),
     envios_por_minuto: formData.get('envios_por_minuto'),

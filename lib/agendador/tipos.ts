@@ -50,6 +50,9 @@ export type Config = {
   paso_min: number
   duracion_min: number
   aviso_min_minutos: number
+  // Fecha (en la zona del negocio) cuyos turnos usan webinar_aviso_min en vez de aviso_min_minutos.
+  webinar_fecha: string | null
+  webinar_aviso_min: number
   dias_adelante: number
   zona: string
   envios_por_minuto: number
