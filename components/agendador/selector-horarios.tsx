@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Globe, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Globe, Loader2, RefreshCw } from 'lucide-react'
 import type { Slot, SlotsRespuesta } from '@/lib/agendador/tipos'
 import { agruparPorDia, formatearDiaCorto, formatearFechaLarga, formatearHora } from '@/lib/agendador/zonas'
 import { Button } from '@/components/ui/button'
@@ -13,11 +13,16 @@ type Props = {
   error: boolean
   zona: string
   aviso: string | null
+  resumen: { nombre: string; email: string }
+  // Inicio del turno que se está reservando; bloquea la grilla mientras tanto.
+  enviandoInicio: string | null
   onElegir: (slot: Slot) => void
+  onCambiarDatos: () => void
   onReintentar: () => void
 }
 
-export function SelectorHorarios({ data, cargando, error, zona, aviso, onElegir, onReintentar }: Props) {
+export function SelectorHorarios({ data, cargando, error, zona, aviso, resumen, enviandoInicio, onElegir, onCambiarDatos, onReintentar }: Props) {
+  const enviando = enviandoInicio !== null
   const dias = useMemo(() => agruparPorDia(data?.slots ?? [], zona), [data, zona])
   const [diaActivo, setDiaActivo] = useState<string | null>(null)
 
@@ -33,6 +38,19 @@ export function SelectorHorarios({ data, cargando, error, zona, aviso, onElegir,
 
   return (
     <div className="flex flex-col gap-4 rounded-2xl border bg-card p-4 sm:p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <p className="text-xs text-muted-foreground">Llamada para</p>
+          <p className="truncate text-sm font-semibold">{resumen.nombre}</p>
+          <p className="truncate text-xs text-muted-foreground">{resumen.email}</p>
+        </div>
+        <Button type="button" variant="ghost" size="sm" onClick={onCambiarDatos} disabled={enviando} className="shrink-0">
+          <ArrowLeft aria-hidden /> Cambiar datos
+        </Button>
+      </div>
+
+      <div className="h-px bg-border" />
+
       {aviso && (
         <p role="status" className="rounded-lg border border-gold-dark/40 bg-gold-dark/10 px-3 py-2 text-sm text-gold-light">
           {aviso}
@@ -97,19 +115,32 @@ export function SelectorHorarios({ data, cargando, error, zona, aviso, onElegir,
             <div className="flex flex-col gap-3" role="tabpanel">
               <p className="text-sm font-medium">{formatearFechaLarga(dia.iso, zona)}</p>
               <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                {dia.slots.map((s) => (
-                  <li key={s.inicio}>
-                    <button
-                      type="button"
-                      onClick={() => onElegir(s)}
-                      className="flex w-full items-center justify-center rounded-lg border border-border bg-surface-raised py-3 text-sm font-medium tabular-nums transition-colors hover:border-gold-light hover:text-gold-light focus-visible:border-gold-light"
-                    >
-                      {formatearHora(s.inicio, zona)}
-                    </button>
-                  </li>
-                ))}
+                {dia.slots.map((s) => {
+                  const esteEnviando = enviandoInicio === s.inicio
+                  return (
+                    <li key={s.inicio}>
+                      <button
+                        type="button"
+                        onClick={() => onElegir(s)}
+                        disabled={enviando}
+                        aria-busy={esteEnviando}
+                        className={cn(
+                          'flex w-full items-center justify-center gap-1.5 rounded-lg border py-3 text-sm font-medium tabular-nums transition-colors',
+                          esteEnviando
+                            ? 'border-gold-light bg-gold-light text-ink'
+                            : 'border-border bg-surface-raised hover:border-gold-light hover:text-gold-light focus-visible:border-gold-light disabled:opacity-50 disabled:hover:border-border disabled:hover:text-foreground',
+                        )}
+                      >
+                        {esteEnviando && <Loader2 className="size-4 animate-spin" aria-hidden />}
+                        {formatearHora(s.inicio, zona)}
+                      </button>
+                    </li>
+                  )
+                })}
               </ul>
-              <p className="text-xs text-muted-foreground">Duración: {data?.duracion_min ?? 30} minutos.</p>
+              <p className="text-xs text-muted-foreground">
+                {enviando ? 'Agendando tu llamada…' : `Duración: ${data?.duracion_min ?? 30} minutos. Al tocar un horario se confirma la llamada.`}
+              </p>
             </div>
           )}
         </>

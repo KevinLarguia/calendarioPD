@@ -31,5 +31,9 @@ export const reservaSchema = z.object({
   sitio_web: z.string().max(0, 'Spam').optional().default(''),
 })
 
+// Paso 1 del formulario: lo que la persona completa antes de elegir horario.
+export const datosSchema = reservaSchema.omit({ inicio: true, token: true })
+export type DatosInput = z.input<typeof datosSchema>
+
 export type ReservaInput = z.input<typeof reservaSchema>
 export type ReservaValidada = z.output<typeof reservaSchema>

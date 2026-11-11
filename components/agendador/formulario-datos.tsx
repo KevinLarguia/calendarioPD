@@ -1,24 +1,22 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js'
-import type { ResultadoReserva, Slot } from '@/lib/agendador/tipos'
 import { PREGUNTAS, type PreguntaId } from '@/lib/agendador/preguntas'
-import { reservaSchema } from '@/lib/agendador/schema'
+import { datosSchema, type DatosInput } from '@/lib/agendador/schema'
 import { opcionesDePais } from '@/lib/agendador/telefono'
-import { etiquetaZona, formatearFechaLarga, formatearHora } from '@/lib/agendador/zonas'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 
 type Props = {
-  slot: Slot
   zona: string
+  inicial: DatosInput | null
   prefill: { nombre: string; email: string; telefono: string }
-  onVolver: () => void
-  onResultado: (r: ResultadoReserva) => void
+  erroresServidor: Record<string, string> | null
+  onContinuar: (datos: DatosInput) => void
 }
 
 type Errores = Partial<Record<string, string>>
@@ -45,96 +43,54 @@ function paisInicial(zona: string, telefono: string): CountryCode {
   return clave ? PAIS_POR_ZONA[clave] : 'AR'
 }
 
-export function FormularioReserva({ slot, zona, prefill, onVolver, onResultado }: Props) {
+export function FormularioDatos({ zona, inicial, prefill, erroresServidor, onContinuar }: Props) {
   const paises = useMemo(() => opcionesDePais(), [])
-  const [pais, setPais] = useState<CountryCode>(() => paisInicial(zona, prefill.telefono))
-  const [token, setToken] = useState<string | null>(null)
-  const [enviando, setEnviando] = useState(false)
-  const [errores, setErrores] = useState<Errores>({})
-  const [errorGeneral, setErrorGeneral] = useState<string | null>(null)
+  const valores = {
+    nombre: inicial?.nombre ?? prefill.nombre,
+    email: inicial?.email ?? prefill.email,
+    telefono: inicial?.telefono ?? prefill.telefono,
+    respuestas: inicial?.respuestas ?? null,
+  }
+  const [pais, setPais] = useState<CountryCode>(() => (inicial?.pais as CountryCode | undefined) ?? paisInicial(zona, valores.telefono))
+  const [errores, setErrores] = useState<Errores>(() => erroresServidor ?? {})
   const formRef = useRef<HTMLFormElement>(null)
 
   useEffect(() => {
-    let activo = true
-    fetch('/api/token', { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((d: { token: string }) => activo && setToken(d.token))
-      .catch(() => activo && setErrorGeneral('No pudimos preparar el formulario. Recargá la página.'))
-    return () => {
-      activo = false
+    if (erroresServidor && Object.keys(erroresServidor).length > 0) {
+      enfocarPrimerError(erroresServidor)
+      return
     }
-  }, [])
-
-  useEffect(() => {
     formRef.current?.querySelector<HTMLElement>('input, select')?.focus()
-  }, [])
+  }, [erroresServidor])
 
-  async function enviar(e: FormEvent<HTMLFormElement>) {
+  function continuar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (enviando) return
-    setErrorGeneral(null)
-
     const fd = new FormData(e.currentTarget)
     const texto = (k: string) => String(fd.get(k) ?? '')
     const respuestas = Object.fromEntries(
       PREGUNTAS.filter((p) => p.tipo !== 'telefono').map((p) => [p.id, texto(`r_${p.id}`)]),
     ) as Record<Exclude<PreguntaId, 'telefono'>, string>
 
-    const cuerpo = {
-      inicio: slot.inicio,
+    const datos: DatosInput = {
       nombre: texto('nombre'),
       email: texto('email'),
       telefono: texto('telefono'),
       pais,
       timezone: zona,
       respuestas,
-      token: token ?? '',
       sitio_web: texto('sitio_web'),
     }
 
-    const local = reservaSchema.safeParse(cuerpo)
+    const local = datosSchema.safeParse(datos)
     if (!local.success) {
       const e2: Errores = {}
       for (const issue of local.error.issues) e2[issue.path.join('.')] = issue.message
-      if (!token) e2.token = 'Esperá un segundo y volvé a intentar.'
       setErrores(e2)
       enfocarPrimerError(e2)
       return
     }
-
-    setEnviando(true)
-    try {
-      const res = await fetch('/api/reservar', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(cuerpo),
-      })
-      const data = (await res.json()) as ResultadoReserva
-      if (data.resultado === 'invalido') {
-        const e2 = data.campos ?? { general: 'Revisá los datos e intentá de nuevo.' }
-        setErrores(e2)
-        setErrorGeneral(e2.token ?? e2.general ?? null)
-        enfocarPrimerError(e2)
-        if (e2.token) {
-          const nuevo = await fetch('/api/token', { cache: 'no-store' }).then((r) => r.json())
-          setToken(nuevo.token)
-        }
-        return
-      }
-      if (data.resultado === 'rate_limit') {
-        setErrorGeneral(
-          data.motivo === 'email'
-            ? 'Ya recibimos varios intentos con este email. Esperá unos minutos.'
-            : 'Recibimos demasiados intentos desde tu conexión. Esperá unos minutos y volvé a probar.',
-        )
-        return
-      }
-      onResultado(data)
-    } catch {
-      setErrorGeneral('No pudimos enviar tu reserva. Revisá tu conexión e intentá de nuevo.')
-    } finally {
-      setEnviando(false)
-    }
+    setErrores({})
+    onContinuar(datos)
   }
 
   function enfocarPrimerError(e2: Errores) {
@@ -147,28 +103,13 @@ export function FormularioReserva({ slot, zona, prefill, onVolver, onResultado }
   const errorDe = (campo: string) => errores[campo]
 
   return (
-    <form ref={formRef} onSubmit={enviar} noValidate className="relative flex flex-col gap-5 rounded-2xl border bg-card p-4 sm:p-6">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-0.5">
-          <p className="text-xs text-muted-foreground">Horario elegido</p>
-          <p className="text-sm font-semibold">
-            {formatearFechaLarga(slot.inicio, zona)} · {formatearHora(slot.inicio, zona)} hs
-          </p>
-          <p className="text-xs text-muted-foreground">{etiquetaZona(zona, slot.inicio)}</p>
-        </div>
-        <Button type="button" variant="ghost" size="sm" onClick={onVolver} className="shrink-0">
-          <ArrowLeft aria-hidden /> Cambiar
-        </Button>
-      </div>
-
-      <div className="h-px bg-border" />
-
+    <form ref={formRef} onSubmit={continuar} noValidate className="relative flex flex-col gap-5 rounded-2xl border bg-card p-4 sm:p-6">
       <Campo id="nombre" etiqueta="Nombre y apellido" error={errorDe('nombre')}>
-        <Input id="nombre" name="nombre" defaultValue={prefill.nombre} autoComplete="name" maxLength={120} aria-invalid={Boolean(errorDe('nombre'))} />
+        <Input id="nombre" name="nombre" defaultValue={valores.nombre} autoComplete="name" maxLength={120} aria-invalid={Boolean(errorDe('nombre'))} />
       </Campo>
 
       <Campo id="email" etiqueta="Email" error={errorDe('email')}>
-        <Input id="email" name="email" type="email" inputMode="email" defaultValue={prefill.email} autoComplete="email" maxLength={200} aria-invalid={Boolean(errorDe('email'))} />
+        <Input id="email" name="email" type="email" inputMode="email" defaultValue={valores.email} autoComplete="email" maxLength={200} aria-invalid={Boolean(errorDe('email'))} />
       </Campo>
 
       {PREGUNTAS.map((p) => {
@@ -194,7 +135,7 @@ export function FormularioReserva({ slot, zona, prefill, onVolver, onResultado }
                   type="tel"
                   inputMode="tel"
                   autoComplete="tel"
-                  defaultValue={prefill.telefono}
+                  defaultValue={valores.telefono}
                   placeholder="Tu número con código de área"
                   aria-invalid={Boolean(errorDe('telefono'))}
                 />
@@ -204,10 +145,18 @@ export function FormularioReserva({ slot, zona, prefill, onVolver, onResultado }
         }
         const nombre = `r_${p.id}`
         const error = errorDe(`respuestas.${p.id}`)
+        const valorPrevio = valores.respuestas?.[p.id] ?? ''
         if (p.tipo === 'texto') {
           return (
             <Campo key={p.id} id={nombre} etiqueta={p.question} error={error}>
-              <Input id={nombre} name={nombre} maxLength={p.id === 'instagram' ? 80 : 300} placeholder={p.id === 'instagram' ? '@tuusuario' : undefined} aria-invalid={Boolean(error)} />
+              <Input
+                id={nombre}
+                name={nombre}
+                defaultValue={valorPrevio}
+                maxLength={p.id === 'instagram' ? 80 : 300}
+                placeholder={p.id === 'instagram' ? '@tuusuario' : undefined}
+                aria-invalid={Boolean(error)}
+              />
             </Campo>
           )
         }
@@ -220,7 +169,13 @@ export function FormularioReserva({ slot, zona, prefill, onVolver, onResultado }
                   key={op}
                   className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-surface-raised px-3 py-2.5 text-sm has-checked:border-gold-light has-checked:bg-gold-light/10"
                 >
-                  <input type="radio" name={nombre} value={op} className="mt-0.5 size-4 shrink-0 accent-[var(--gold-light)]" />
+                  <input
+                    type="radio"
+                    name={nombre}
+                    value={op}
+                    defaultChecked={valorPrevio === op}
+                    className="mt-0.5 size-4 shrink-0 accent-[var(--gold-light)]"
+                  />
                   <span className="leading-snug">{op}</span>
                 </label>
               ))}
@@ -233,25 +188,13 @@ export function FormularioReserva({ slot, zona, prefill, onVolver, onResultado }
       {/* Honeypot: oculto para personas, los bots lo completan. */}
       <div className="absolute -left-[9999px] h-0 w-0 overflow-hidden" aria-hidden>
         <label htmlFor="sitio_web">Sitio web</label>
-        <input id="sitio_web" name="sitio_web" type="text" tabIndex={-1} autoComplete="off" />
+        <input id="sitio_web" name="sitio_web" type="text" tabIndex={-1} autoComplete="off" defaultValue={inicial?.sitio_web ?? ''} />
       </div>
 
-      {errorGeneral && (
-        <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {errorGeneral}
-        </p>
-      )}
-
-      <Button type="submit" size="lg" disabled={enviando} className="w-full">
-        {enviando ? (
-          <>
-            <Loader2 className="animate-spin" aria-hidden /> Agendando…
-          </>
-        ) : (
-          'Confirmar llamada'
-        )}
+      <Button type="submit" size="lg" className="w-full">
+        Elegir horario <ArrowRight aria-hidden />
       </Button>
-      <p className="text-center text-xs text-pretty text-muted-foreground">Al confirmar vas a recibir un WhatsApp con los datos de la llamada.</p>
+      <p className="text-center text-xs text-pretty text-muted-foreground">En el siguiente paso elegís el día y la hora de la llamada.</p>
     </form>
   )
 }
