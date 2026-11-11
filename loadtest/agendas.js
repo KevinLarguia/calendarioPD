@@ -17,7 +17,6 @@ import exec from 'k6/execution'
 
 const BASE = (__ENV.BASE_URL || 'http://localhost:3000').replace(/\/$/, '')
 const ESCENARIO = __ENV.ESCENARIO || 'humo'
-const PREFIJO = __ENV.PREFIJO || `k6-${Date.now().toString(36)}`
 
 const resultados = new Counter('reservas_resultado')
 const sinCupo = new Counter('reservas_sin_cupo')
@@ -29,15 +28,32 @@ const tReservar = new Trend('t_reservar', true)
 const ESCENARIOS = {
   humo: { executor: 'shared-iterations', vus: 2, iterations: 5, maxDuration: '2m' },
   rafaga60: { executor: 'shared-iterations', vus: 30, iterations: 60, maxDuration: '3m' },
-  pico500: { executor: 'ramping-arrival-rate', startRate: 1, timeUnit: '1s', preAllocatedVUs: 150, maxVUs: 600, stages: [{ target: 6, duration: '90s' }, { target: 0, duration: '10s' }] },
+  // 500 llegadas repartidas en 90 s (~5,5 por segundo); cada una tarda ~5 s por la espera del token.
+  pico500: { executor: 'constant-arrival-rate', rate: 500, timeUnit: '90s', duration: '90s', preAllocatedVUs: 100, maxVUs: 600 },
   pico300: { executor: 'constant-arrival-rate', rate: 1, timeUnit: '1s', duration: '5m', preAllocatedVUs: 40, maxVUs: 200 },
   hora1000: { executor: 'constant-arrival-rate', rate: 1000, timeUnit: '60m', duration: '60m', preAllocatedVUs: 20, maxVUs: 100 },
 }
 
+const httpErrores = new Counter('http_errores')
+
+function registrar(res) {
+  if (res.status === 0 || res.status >= 400) httpErrores.add(1, { status: String(res.status), ruta: res.request.url.replace(BASE, '') })
+  return res
+}
+
 export const options = {
+  summaryTrendStats: ['avg', 'min', 'med', 'p(95)', 'p(99)', 'max'],
   scenarios: { [ESCENARIO]: ESCENARIOS[ESCENARIO] },
   thresholds: {
     http_req_failed: ['rate<0.02'],
+    // k6 solo incluye submétricas por tag en el resumen si están en thresholds: las declaramos con un umbral trivial.
+    ...Object.fromEntries(
+      ['ok', 'sin_cupo', 'ya_agendado', 'rate_limit', 'invalido', 'inactivo', 'http_500', 'http_502', 'http_503', 'http_504', 'http_0'].map((r) => [
+        `reservas_resultado{resultado:${r}}`,
+        ['count>=0'],
+      ]),
+    ),
+    ...Object.fromEntries(['0', '400', '401', '403', '404', '422', '429', '500', '502', '503', '504'].map((s) => [`http_errores{status:${s}}`, ['count>=0']])),
     t_pagina: ['p(95)<1500'],
     t_slots: ['p(95)<1500'],
     t_reservar: ['p(95)<3000'],
@@ -57,15 +73,23 @@ function ipSimulada(n) {
   return `10.${(n >> 16) & 255}.${(n >> 8) & 255}.${n & 255}`
 }
 
-export default function () {
+// setup() corre una sola vez: la semilla hace que emails y teléfonos no se repitan entre corridas
+// (el código de init corre por VU, así que un Date.now() ahí no sirve para esto).
+export function setup() {
+  const semilla = Date.now().toString(36).slice(-5)
+  return { prefijo: __ENV.PREFIJO || `k6-${semilla}`, bloqueTel: Date.now() % 9000 }
+}
+
+export default function (data) {
+  const PREFIJO = data.prefijo
   const n = exec.scenario.iterationInTest + 1
   const headers = { 'x-prueba-ip': ipSimulada(n) }
 
-  const pagina = http.get(`${BASE}/`, { headers, tags: { name: 'pagina' } })
+  const pagina = registrar(http.get(`${BASE}/`, { headers, tags: { name: 'pagina' } }))
   tPagina.add(pagina.timings.duration)
   check(pagina, { 'pagina 200': (r) => r.status === 200 })
 
-  const slots = http.get(`${BASE}/api/slots`, { headers, tags: { name: 'slots' } })
+  const slots = registrar(http.get(`${BASE}/api/slots`, { headers, tags: { name: 'slots' } }))
   tSlots.add(slots.timings.duration)
   if (!check(slots, { 'slots 200': (r) => r.status === 200 })) return
   const lista = slots.json('slots') || []
@@ -74,7 +98,7 @@ export default function () {
     return
   }
 
-  const token = http.get(`${BASE}/api/token`, { headers, tags: { name: 'token' } }).json('token')
+  const token = registrar(http.get(`${BASE}/api/token`, { headers, tags: { name: 'token' } })).json('token')
   // El token exige >= 4 s desde su emisión (tiempo mínimo de llenado del formulario).
   sleep(4.2)
 
@@ -84,7 +108,7 @@ export default function () {
     inicio: slot.inicio,
     nombre: `Carga ${PREFIJO} ${n}`,
     email: `${PREFIJO}-${n}@carga.test`,
-    telefono: `9 11 ${String(10000000 + n).slice(-8)}`,
+    telefono: `9 11 ${String(data.bloqueTel).padStart(4, '0')}${String(n).padStart(4, '0')}`,
     pais: 'AR',
     timezone: 'America/Argentina/Buenos_Aires',
     respuestas: RESPUESTAS,
@@ -92,10 +116,10 @@ export default function () {
     sitio_web: '',
   }
 
-  const res = http.post(`${BASE}/api/reservar`, JSON.stringify(cuerpo), {
+  const res = registrar(http.post(`${BASE}/api/reservar`, JSON.stringify(cuerpo), {
     headers: { ...headers, 'content-type': 'application/json' },
     tags: { name: 'reservar' },
-  })
+  }))
   tReservar.add(res.timings.duration)
   const resultado = res.status < 500 ? res.json('resultado') : `http_${res.status}`
   resultados.add(1, { resultado })
@@ -106,15 +130,23 @@ export default function () {
 
 export function handleSummary(data) {
   const m = data.metrics
-  const p95 = (k) => (m[k] ? Math.round(m[k].values['p(95)']) : null)
+  const pct = (k, p) => (m[k] ? Math.round(m[k].values[p]) : null)
+  const porTag = (prefijo, tag) =>
+    Object.fromEntries(
+      Object.keys(m)
+        .filter((k) => k.startsWith(`${prefijo}{`))
+        .map((k) => [k.match(new RegExp(`${tag}:([^,}]+)`))?.[1] ?? k, m[k].values.count]),
+    )
   const resumen = {
     escenario: ESCENARIO,
     base: BASE,
     iteraciones: m.iterations ? m.iterations.values.count : 0,
-    reservas_ok: m.reservas_ok ? m.reservas_ok.values.count : 0,
-    sin_cupo: m.reservas_sin_cupo ? m.reservas_sin_cupo.values.count : 0,
-    errores_http: m.http_req_failed ? m.http_req_failed.values.passes : 0,
-    p95_ms: { pagina: p95('t_pagina'), slots: p95('t_slots'), reservar: p95('t_reservar') },
+    http_requests: m.http_reqs ? m.http_reqs.values.count : 0,
+    http_fallidas: m.http_req_failed ? m.http_req_failed.values.passes : 0,
+    http_fallidas_por_status: porTag('http_errores', 'status'),
+    resultados_reservar: porTag('reservas_resultado', 'resultado'),
+    p95_ms: { pagina: pct('t_pagina', 'p(95)'), slots: pct('t_slots', 'p(95)'), reservar: pct('t_reservar', 'p(95)') },
+    p99_ms: { pagina: pct('t_pagina', 'p(99)'), slots: pct('t_slots', 'p(99)'), reservar: pct('t_reservar', 'p(99)') },
   }
   return {
     stdout: `\n${JSON.stringify(resumen, null, 2)}\n`,

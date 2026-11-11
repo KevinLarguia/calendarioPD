@@ -14,5 +14,8 @@ join public.agendador_mapa_closers() m on m.nombre = r.closer
 join public.agendas_final af
   on public.agendador_norm(af.closer) = m.variante
  and af.organization_id = 2 and af.activo and coalesce(af.estado_llamada, '') <> 'Cancelada'
- and tstzrange(af.fecha_llamada at time zone 'UTC', (af.fecha_llamada at time zone 'UTC') + interval '60 min') && tstzrange(r.inicio, r.fin)
-where r.estado = 'activa';
+ and tstzrange(af.fecha_llamada at time zone 'UTC', (af.fecha_llamada at time zone 'UTC') + make_interval(mins => c.duracion_min)) && tstzrange(r.inicio, r.fin)
+cross join public.agendador_config c
+where c.id = 1 and r.estado = 'activa';
+-- Si aparece una fila cuyo agendas_final.synced_at es POSTERIOR a reservas.created_at, no es un bug del agendador:
+-- es una reserva real de Calendly que entró después, sobre un hueco que el respaldo ya había ocupado.
