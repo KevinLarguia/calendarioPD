@@ -38,6 +38,13 @@ export type Reserva = {
   verificado_at: string | null
   ultimo_error: string | null
   es_prueba: boolean
+  zoom_meeting_id: string | null
+  zoom_join_url: string | null
+  zoom_error: string | null
+  gcal_event_id: string | null
+  gcal_synced_at: string | null
+  gcal_error: string | null
+  gcal_intentos: number
   created_at: string
   updated_at: string
 }
@@ -69,7 +76,18 @@ export type Closer = {
   nombre: string
   email: string | null
   zoom_link: string | null
+  // Opcionales: si están vacíos se usa el email del closer (calendario principal / usuario de Zoom).
+  gcal_calendar_id: string | null
+  zoom_user: string | null
   aliases: string[]
   activo: boolean
   orden: number
+}
+
+export type EstadoSyncGcal = {
+  closer: string
+  ultimo_ok_at: string | null
+  ultimo_intento_at: string | null
+  ultimo_error: string | null
+  bloques: number
 }

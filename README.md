@@ -28,6 +28,8 @@ En `AGENDADOR_MODO=test` la cola no llama a n8n: marca `verificado` con `es_prue
 | `FORM_TOKEN_SECRET` | firma del token anti-bots del formulario (cualquier string largo al azar) |
 | `DISCORD_ALERTAS_WEBHOOK_URL` | webhook del canal de alertas |
 | `AGENDADOR_MODO` | `test` (default) o `prod` |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | JSON de la service account con domain-wide delegation (completo, o en base64). Sin esto no hay sync de Google Calendar |
+| `ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID`, `ZOOM_CLIENT_SECRET` | app Server-to-Server OAuth de Zoom. Sin esto se sigue usando el `zoom_link` fijo del closer |
 
 ## Base de datos (Supabase del CRM)
 
@@ -73,6 +75,33 @@ Después de cada corrida: `loadtest/control-superposiciones.sql` debe devolver 0
 2. `select public.agendador_cron_url('https://<dominio>/api/cola/procesar')`.
 3. Una reserva real propia desde el celular → en ≤ 4 min debe estar `verificado` en `/admin` y la agenda en el CRM con WhatsApp enviado.
 4. Para volver a Calendly: `activo = false` en `/admin` (el agendador deja de dar horarios) o `cron.unschedule('agendador_cola')`.
+
+## Zoom y Google Calendar (migración 005)
+
+Solo corren con `AGENDADOR_MODO=prod` (en `test` no se llama a ninguna API externa).
+
+- **Zoom**: antes de mandar la reserva a n8n, la cola crea una reunión de Zoom con el closer como host (`/users/{email}/meetings`) y guarda `zoom_meeting_id` / `zoom_join_url`. El payload a n8n lleva ese link en `scheduled_event.location` (misma forma de siempre). Si Zoom falla, se envía con el `zoom_link` fijo del closer y se avisa a Discord: nunca frena el envío.
+- **Google Calendar, lectura**: `POST /api/gcal/sincronizar` (pg_cron, cada minuto) lee el calendario de cada closer activo y copia a `agendador_bloqueos_gcal` lo que está ocupado. `agendador_ocupacion()` suma esos bloques, así que cualquier evento que el pre call cree en el calendario de un closer (opaco/“Ocupado”, no rechazado) saca ese horario del agendador. No cuentan: eventos “Libre”, rechazados, cancelados, ubicación de trabajo ni los eventos creados por el propio agendador. Los de todo el día bloquean el día completo en la zona del negocio.
+- **Google Calendar, escritura**: la misma corrida crea un evento por reserva en el calendario del closer (título, datos del lead, respuestas del formulario y link de Zoom). El id del evento es el uuid de la reserva, así que reintentar no duplica. Si la reserva pasa a `cancelada`, se borran el evento y la reunión de Zoom.
+- Si el sync de un closer falla, se conservan sus últimos bloques, se muestra el error en `/admin` y se avisa a Discord (máx. 1 vez cada 30 min por closer). Los eventos nuevos pueden tardar hasta ~1 min en reflejarse como bloqueo.
+
+### Configuración (una sola vez)
+
+1. **Google Cloud**: crear una service account, habilitar *Google Calendar API*, generar una clave JSON y cargarla en `GOOGLE_SERVICE_ACCOUNT_JSON`.
+2. **Workspace Admin** → Seguridad → Control de acceso a datos → *Delegación en todo el dominio*: autorizar el *Client ID* de la service account con el scope `https://www.googleapis.com/auth/calendar.events`.
+3. **Zoom Marketplace** → *Server-to-Server OAuth app*, con los scopes `meeting:write:meeting:admin` y `meeting:delete:meeting:admin`. Los closers tienen que ser usuarios con licencia de la cuenta (el email del closer en `/admin` = su email de Zoom).
+4. En `/admin` → Closers: cada closer activo necesita email (se usa para Google y Zoom). *Calendario de Google* y *Usuario de Zoom* solo se completan si son distintos del email.
+5. Aplicar la migración y apuntar el job al deploy (una vez):
+
+```bash
+node --env-file=.env.development.local scripts/db/aplicar.mjs supabase/migrations/005_agendador_integraciones.sql
+```
+```sql
+select public.agendador_gcal_cron_url('https://<dominio-del-deploy>/api/gcal/sincronizar');
+select * from agendador_gcal_sync;   -- tras 1-2 minutos: un registro por closer, con ultimo_error vacío
+```
+
+Prueba sin credenciales: `pnpm exec tsx scripts/integraciones/probar-mocks.ts`. Rollback: `supabase/rollbacks/005_agendador_integraciones.sql`.
 
 ## Enlaces `/backup/...`
 

@@ -87,6 +87,8 @@ const closerSchema = z.object({
   nombre: z.string().trim().min(2).max(80),
   email: z.union([z.literal(''), z.email()]).transform((v) => v || null),
   zoom_link: z.union([z.literal(''), z.url()]).transform((v) => v || null),
+  gcal_calendar_id: z.string().trim().max(200).transform((v) => v || null),
+  zoom_user: z.string().trim().max(200).transform((v) => v || null),
   aliases: z
     .string()
     .transform((v) =>
@@ -106,6 +108,8 @@ export async function guardarCloser(_prev: EstadoAccion, formData: FormData): Pr
     nombre: formData.get('nombre'),
     email: formData.get('email') ?? '',
     zoom_link: formData.get('zoom_link') ?? '',
+    gcal_calendar_id: formData.get('gcal_calendar_id') ?? '',
+    zoom_user: formData.get('zoom_user') ?? '',
     aliases: formData.get('aliases') ?? '',
     activo: formData.get('activo') === 'on',
     orden: formData.get('orden') ?? 0,

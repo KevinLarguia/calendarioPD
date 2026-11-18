@@ -49,3 +49,19 @@ export async function avisarDiscord(reserva: Reserva, estado: 'revisar' | 'error
     console.error('[discord]', (e as Error).message)
   }
 }
+
+/** Aviso genérico (sin datos de leads) para fallas de integraciones. Nunca lanza. */
+export async function avisarDiscordTexto(titulo: string, detalle: string): Promise<void> {
+  const url = env.discordWebhookUrl
+  if (!url) return
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ content: `**[Agendador] ${titulo}**\n${detalle}`.slice(0, 1900) }),
+      signal: AbortSignal.timeout(8000),
+    })
+  } catch (e) {
+    console.error('[discord]', (e as Error).message)
+  }
+}

@@ -2,30 +2,31 @@
 
 import { useActionState } from 'react'
 import { guardarCloser, type EstadoAccion } from '@/app/admin/actions'
-import type { Closer } from '@/lib/agendador/tipos'
+import type { Closer, EstadoSyncGcal } from '@/lib/agendador/tipos'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
-export function ClosersForm({ closers }: { closers: Closer[] }) {
+export function ClosersForm({ closers, syncGcal = [] }: { closers: Closer[]; syncGcal?: EstadoSyncGcal[] }) {
   return (
     <section className="flex flex-col gap-3 rounded-2xl border bg-card p-4">
       <h2 className="text-base font-semibold">Closers</h2>
       <p className="text-xs text-pretty text-muted-foreground">
         El nombre tiene que ser exactamente el que manda Calendly (así lo ve n8n). Los alias sirven para reconocer
-        variantes históricas en agendas_final (separados por coma).
+        variantes históricas en agendas_final (separados por coma). Google Calendar y Zoom usan el email del closer; los
+        campos de calendario y usuario de Zoom solo hacen falta si son distintos.
       </p>
       <div className="flex flex-col gap-3">
         {closers.map((c) => (
-          <FilaCloser key={c.id} closer={c} />
+          <FilaCloser key={c.id} closer={c} sync={syncGcal.find((s) => s.closer === c.nombre) ?? null} />
         ))}
-        <FilaCloser closer={null} />
+        <FilaCloser closer={null} sync={null} />
       </div>
     </section>
   )
 }
 
-function FilaCloser({ closer }: { closer: Closer | null }) {
+function FilaCloser({ closer, sync }: { closer: Closer | null; sync: EstadoSyncGcal | null }) {
   const [estado, accion, pendiente] = useActionState<EstadoAccion, FormData>(guardarCloser, { ok: true })
   return (
     <form action={accion} className={cn('flex flex-col gap-2 rounded-xl border p-3', !closer && 'border-dashed')}>
@@ -43,6 +44,11 @@ function FilaCloser({ closer }: { closer: Closer | null }) {
         <Input name="zoom_link" type="url" placeholder="Zoom link (opcional)" defaultValue={closer?.zoom_link ?? ''} aria-label="Zoom link" />
         <Input name="aliases" placeholder="Alias, separados por coma" defaultValue={closer?.aliases.join(', ') ?? ''} aria-label="Alias" />
       </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Input name="gcal_calendar_id" placeholder="Calendario de Google (opcional)" defaultValue={closer?.gcal_calendar_id ?? ''} aria-label="Calendario de Google" />
+        <Input name="zoom_user" placeholder="Usuario de Zoom (opcional)" defaultValue={closer?.zoom_user ?? ''} aria-label="Usuario de Zoom" />
+      </div>
+      {closer && <EstadoSync sync={sync} />}
       <div className="flex items-center justify-between gap-2">
         <span className={cn('text-xs', estado.ok ? 'text-green' : 'text-destructive')} role="status">
           {estado.mensaje ?? ''}
@@ -52,5 +58,30 @@ function FilaCloser({ closer }: { closer: Closer | null }) {
         </Button>
       </div>
     </form>
+  )
+}
+
+const fmtSync = new Intl.DateTimeFormat('es-AR', {
+  timeZone: 'America/Argentina/Buenos_Aires',
+  day: '2-digit',
+  month: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+
+function EstadoSync({ sync }: { sync: EstadoSyncGcal | null }) {
+  if (!sync) return <p className="text-xs text-muted-foreground">Google Calendar: todavía sin sincronizar.</p>
+  if (sync.ultimo_error) {
+    return (
+      <p className="text-xs text-destructive" role="status">
+        Google Calendar con error: {sync.ultimo_error}
+        {sync.ultimo_ok_at ? ` · último ok ${fmtSync.format(new Date(sync.ultimo_ok_at))}` : ''}
+      </p>
+    )
+  }
+  return (
+    <p className="text-xs text-muted-foreground">
+      Google Calendar ok · {sync.bloques} bloques ocupados · {sync.ultimo_ok_at ? fmtSync.format(new Date(sync.ultimo_ok_at)) : ''}
+    </p>
   )
 }

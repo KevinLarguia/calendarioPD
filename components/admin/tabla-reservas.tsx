@@ -65,10 +65,12 @@ export function TablaReservas({ reservas, filtro }: { reservas: Reserva[]; filtr
                     <Badge variant={VARIANTE[r.estado_envio]}>{r.estado_envio}</Badge>
                     {r.es_prueba && <Badge variant="outline">prueba</Badge>}
                     {r.intentos > 0 && <span className="text-xs text-muted-foreground">×{r.intentos}</span>}
+                    {r.zoom_join_url && <Badge variant="outline">zoom</Badge>}
+                    {r.gcal_event_id && <Badge variant="outline">gcal</Badge>}
                   </div>
                 </TableCell>
-                <TableCell className="max-w-64 truncate text-xs text-muted-foreground" title={r.ultimo_error ?? ''}>
-                  {r.ultimo_error ?? ''}
+                <TableCell className="max-w-64 truncate text-xs text-muted-foreground" title={r.ultimo_error ?? r.zoom_error ?? r.gcal_error ?? ''}>
+                  {r.ultimo_error ?? r.zoom_error ?? r.gcal_error ?? ''}
                 </TableCell>
                 <TableCell className="whitespace-nowrap text-xs text-muted-foreground tabular-nums">{fmt.format(new Date(r.created_at))}</TableCell>
                 <TableCell className="text-right">

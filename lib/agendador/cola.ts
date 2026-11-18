@@ -4,6 +4,7 @@ import { env } from '@/lib/env'
 import { armarPayloadCalendly } from '@/lib/n8n/payload'
 import { enviarAN8n } from '@/lib/n8n/enviar'
 import { avisarDiscord } from '@/lib/agendador/discord'
+import { asegurarZoom } from '@/lib/agendador/integraciones'
 import type { Closer, Config, Reserva } from '@/lib/agendador/tipos'
 
 const MAX_INTENTOS_CONEXION = 3
@@ -72,6 +73,8 @@ async function enviarUna(reserva: Reserva, closers: Map<string, Closer>, config:
     return
   }
 
+  // Zoom propio por reserva (si falla o no está configurado, el payload cae al zoom_link fijo del closer).
+  await asegurarZoom(reserva, closers.get(reserva.closer) ?? null, config)
   const payload = armarPayloadCalendly(reserva, closers.get(reserva.closer) ?? null, config)
   const r = await enviarAN8n(payload)
 

@@ -49,7 +49,7 @@ export default async function PaginaAdmin({ searchParams }: { searchParams: Prom
 
       <div className="grid gap-6 lg:grid-cols-2">
         <ConfigForm config={datos.config} />
-        <ClosersForm closers={datos.closers} />
+        <ClosersForm closers={datos.closers} syncGcal={datos.syncGcal} />
       </div>
     </main>
   )

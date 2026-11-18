@@ -35,7 +35,8 @@ export function armarPayloadCalendly(reserva: Reserva, closer: Closer | null, co
   const host = hostDesdeInviteeUri(reserva.invitee_uri)
   const base = `https://${host}/backup`
   const creado = isoCalendly(reserva.created_at)
-  const zoom = closer?.zoom_link?.trim() || null
+  // Zoom propio de la reserva (creado por API); si no hay, el link fijo del closer.
+  const zoom = reserva.zoom_join_url?.trim() || closer?.zoom_link?.trim() || null
   const location = zoom ? { type: 'custom', location: zoom, join_url: zoom } : { type: 'custom', location: null }
 
   return {
