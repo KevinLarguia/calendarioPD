@@ -18,7 +18,13 @@ export type ResultadoReserva =
 
 export type EstadoEnvio = 'pendiente' | 'enviando' | 'enviado' | 'verificado' | 'revisar' | 'error'
 
-export type Reserva = {
+export const CLAVES_UTM = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'] as const
+export type ClaveUtm = (typeof CLAVES_UTM)[number]
+
+/** Parámetros utm_* con los que el lead llegó a la página (null = la URL no los traía). */
+export type Utm = Record<ClaveUtm, string | null>
+
+export type Reserva = Utm & {
   id: string
   invitee_uri: string
   closer: string

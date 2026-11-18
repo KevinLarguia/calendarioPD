@@ -72,6 +72,7 @@ export async function POST(req: Request) {
     p_user_agent: userAgentDe(req),
     p_host: hostDe(req),
     p_es_prueba: env.modo === 'test',
+    p_utm: datos.utm ?? null,
   })
 
   if (error) {

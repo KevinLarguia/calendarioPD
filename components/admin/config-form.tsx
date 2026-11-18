@@ -69,7 +69,7 @@ export function ConfigForm({ config }: { config: Config }) {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <CampoNum id="zona" etiqueta="Zona (IANA)" tipo="text" valor={config.zona} />
-        <CampoNum id="utm_source" etiqueta="utm_source" tipo="text" valor={config.utm_source} />
+        <CampoNum id="utm_source" etiqueta="utm_source de respaldo (si la URL no trae uno)" tipo="text" valor={config.utm_source} />
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <Label htmlFor="evento_nombre">Nombre del evento</Label>
           <Input id="evento_nombre" name="evento_nombre" defaultValue={config.evento_nombre} />

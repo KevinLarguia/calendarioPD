@@ -32,6 +32,11 @@ const reserva: Reserva = {
   verificado_at: null,
   ultimo_error: null,
   es_prueba: false,
+  utm_source: 'webinar-25-11',
+  utm_medium: null,
+  utm_campaign: null,
+  utm_content: null,
+  utm_term: null,
   created_at: '2026-11-11T03:43:54.732Z',
   updated_at: '2026-11-11T03:43:54.732Z',
 }

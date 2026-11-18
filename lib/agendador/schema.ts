@@ -18,8 +18,26 @@ export const respuestasSchema = z.object({
   decision: opcionesDe('decision'),
 })
 
+// Lo que vino en la URL (?utm_source=…). Vacío o ausente se guarda como null; largo se recorta, nunca bloquea la reserva.
+const utmValor = z
+  .string()
+  .trim()
+  .transform((v) => (v === '' ? null : v.slice(0, 200)))
+  .nullable()
+  .optional()
+  .transform((v) => v ?? null)
+
+export const utmSchema = z.object({
+  utm_source: utmValor,
+  utm_medium: utmValor,
+  utm_campaign: utmValor,
+  utm_content: utmValor,
+  utm_term: utmValor,
+})
+
 export const reservaSchema = z.object({
   inicio: z.iso.datetime({ offset: true, message: 'Horario inválido' }),
+  utm: utmSchema.optional(),
   nombre: texto(120),
   email: z.email({ message: 'Ingresá un email válido' }).max(200).transform((v) => v.trim().toLowerCase()),
   telefono: z.string().trim().min(5, 'Ingresá tu teléfono').max(40),
@@ -32,7 +50,7 @@ export const reservaSchema = z.object({
 })
 
 // Paso 1 del formulario: lo que la persona completa antes de elegir horario.
-export const datosSchema = reservaSchema.omit({ inicio: true, token: true })
+export const datosSchema = reservaSchema.omit({ inicio: true, token: true, utm: true })
 export type DatosInput = z.input<typeof datosSchema>
 
 export type ReservaInput = z.input<typeof reservaSchema>

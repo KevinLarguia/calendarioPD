@@ -86,12 +86,13 @@ export function armarPayloadCalendly(reserva: Reserva, closer: Closer | null, co
       status: 'active',
       text_reminder_number: null,
       timezone: reserva.timezone_lead ?? 'America/Argentina/Buenos_Aires',
+      // Los utm_* son los de la URL con la que llegó el lead; config.utm_source solo cubre a quien entró sin utm_source.
       tracking: {
-        utm_campaign: null,
-        utm_source: config.utm_source,
-        utm_medium: null,
-        utm_content: null,
-        utm_term: null,
+        utm_campaign: reserva.utm_campaign ?? null,
+        utm_source: reserva.utm_source ?? config.utm_source,
+        utm_medium: reserva.utm_medium ?? null,
+        utm_content: reserva.utm_content ?? null,
+        utm_term: reserva.utm_term ?? null,
         salesforce_uuid: null,
       },
       updated_at: creado,

@@ -1,10 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useSearchParams } from 'next/navigation'
 import useSWR from 'swr'
-import type { ResultadoReserva, Slot, SlotsRespuesta } from '@/lib/agendador/tipos'
+import { CLAVES_UTM, type ResultadoReserva, type Slot, type SlotsRespuesta, type Utm } from '@/lib/agendador/tipos'
 import type { DatosInput } from '@/lib/agendador/schema'
 import { ZONA_DEFAULT } from '@/lib/agendador/zonas'
 import { SelectorHorarios } from '@/components/agendador/selector-horarios'
@@ -29,8 +29,19 @@ async function pedirToken(): Promise<string> {
   return d.token
 }
 
+/** Los utm_* de la URL de entrada: así n8n y el CRM reciben la fuente real de cada lead. */
+function utmDe(params: URLSearchParams): Utm {
+  const utm = {} as Utm
+  for (const clave of CLAVES_UTM) {
+    const valor = params.get(clave)?.trim() ?? ''
+    utm[clave] = valor === '' ? null : valor
+  }
+  return utm
+}
+
 export function Agendador() {
   const params = useSearchParams()
+  const utm = useMemo(() => utmDe(params), [params])
   // Los horarios se muestran siempre en la zona del negocio (Buenos Aires); el lead no la puede cambiar.
   const zona = ZONA_DEFAULT
   const [paso, setPaso] = useState<Paso>({ n: 1, erroresServidor: null })
@@ -78,7 +89,7 @@ export function Agendador() {
         const res = await fetch('/api/reservar', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ ...datos, inicio: slot.inicio, token: token.current }),
+          body: JSON.stringify({ ...datos, inicio: slot.inicio, token: token.current, utm }),
         })
         const r = (await res.json()) as ResultadoReserva
 
@@ -126,7 +137,7 @@ export function Agendador() {
         setEnviandoInicio(null)
       }
     },
-    [enviandoInicio, mutate],
+    [enviandoInicio, mutate, utm],
   )
 
   return (

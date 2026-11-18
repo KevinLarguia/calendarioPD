@@ -57,6 +57,9 @@ export function TablaReservas({ reservas, filtro }: { reservas: Reserva[]; filtr
                     <span className="text-xs text-muted-foreground">
                       {r.email} · {r.telefono_e164}
                     </span>
+                    <span className="text-xs text-muted-foreground">
+                      Fuente: {r.utm_source ? <span className="font-mono">{r.utm_source}</span> : <span className="italic">sin utm (usa la de config)</span>}
+                    </span>
                   </div>
                 </TableCell>
                 <TableCell className="whitespace-nowrap">{r.closer}</TableCell>
