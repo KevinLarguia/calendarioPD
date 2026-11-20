@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { env } from '@/lib/env'
 import { armarPayloadCalendly } from '@/lib/n8n/payload'
 import { enviarAN8n } from '@/lib/n8n/enviar'
-import { avisarDiscord } from '@/lib/agendador/discord'
+import { avisarDiscord, avisarSyncBloqueos, type SyncBloqueosCaido } from '@/lib/agendador/discord'
 import type { Closer, Config, Reserva } from '@/lib/agendador/tipos'
 
 const MAX_INTENTOS_CONEXION = 3
@@ -182,6 +182,11 @@ export async function procesarCola(): Promise<ResumenCola> {
   }
 
   await verificarEnviadas(resumen)
+
+  // Devuelve filas como mucho una vez por hora (el turno lo toma la función en la base).
+  const { data: syncCaido, error: errorAviso } = await supabase.rpc('agendador_aviso_bloqueos')
+  if (errorAviso) console.error('[cola] agendador_aviso_bloqueos', errorAviso.message)
+  else await avisarSyncBloqueos((syncCaido ?? []) as SyncBloqueosCaido[])
 
   resumen.duracion_ms = Date.now() - t0
   return resumen

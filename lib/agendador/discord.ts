@@ -25,16 +25,45 @@ function horarioArgentina(iso: string): string {
 
 /** Aviso al canal de alertas. Nunca lanza: una falla de Discord no puede frenar la cola. */
 export async function avisarDiscord(reserva: Reserva, estado: 'revisar' | 'error', motivo: string): Promise<void> {
+  const titulo = estado === 'revisar' ? 'Reserva para REVISAR' : 'Reserva con ERROR'
+  await enviarDiscord(
+    [
+      `**[Agendador] ${titulo}**`,
+      `Lead: ${reserva.nombre} · ${enmascararEmail(reserva.email)} · ${enmascararTelefono(reserva.telefono_e164)}`,
+      `Horario: ${horarioArgentina(reserva.inicio)} (ART) · Closer: ${reserva.closer}`,
+      `Motivo: ${motivo}`,
+      `Id: ${reserva.id}${reserva.es_prueba ? ' · PRUEBA' : ''}`,
+    ].join('\n'),
+  )
+}
+
+export type SyncBloqueosCaido = {
+  google_email: string
+  closer: string
+  errores: number
+  ultimo_ok: string | null
+}
+
+/** El sync de Google Calendar del CRM lleva >= 3 errores seguidos para estos closers. */
+export async function avisarSyncBloqueos(filas: SyncBloqueosCaido[]): Promise<void> {
+  if (filas.length === 0) return
+  await enviarDiscord(
+    [
+      '**[Agendador] Sync de Google Calendar con errores**',
+      'Se siguen usando los últimos bloqueos conocidos de estos closers:',
+      ...filas.map(
+        (f) =>
+          `- ${f.closer} (${enmascararEmail(f.google_email)}): ${f.errores} errores seguidos · último ok ${
+            f.ultimo_ok ? `${horarioArgentina(f.ultimo_ok)} (ART)` : 'nunca'
+          }`,
+      ),
+    ].join('\n'),
+  )
+}
+
+async function enviarDiscord(contenido: string): Promise<void> {
   const url = env.discordWebhookUrl
   if (!url) return
-  const titulo = estado === 'revisar' ? 'Reserva para REVISAR' : 'Reserva con ERROR'
-  const contenido = [
-    `**[Agendador] ${titulo}**`,
-    `Lead: ${reserva.nombre} · ${enmascararEmail(reserva.email)} · ${enmascararTelefono(reserva.telefono_e164)}`,
-    `Horario: ${horarioArgentina(reserva.inicio)} (ART) · Closer: ${reserva.closer}`,
-    `Motivo: ${motivo}`,
-    `Id: ${reserva.id}${reserva.es_prueba ? ' · PRUEBA' : ''}`,
-  ].join('\n')
   try {
     const ctrl = new AbortController()
     const t = setTimeout(() => ctrl.abort(), 8000)
