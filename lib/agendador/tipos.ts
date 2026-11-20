@@ -10,7 +10,7 @@ export type SlotsRespuesta = {
 
 export type ResultadoReserva =
   | { resultado: 'ok'; id: string; inicio: string; fin: string; closer: string }
-  | { resultado: 'ya_agendado'; inicio: string; closer: string | null; fuente: 'respaldo' | 'calendly' }
+  | { resultado: 'ya_agendado'; inicio: string; closer: string | null; fuente: 'respaldo' | 'calendly' | 'crm' }
   | { resultado: 'sin_cupo'; inicio: string }
   | { resultado: 'rate_limit'; motivo: 'ip' | 'email' }
   | { resultado: 'invalido'; motivo: string; campos?: Record<string, string> }
